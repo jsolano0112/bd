@@ -157,20 +157,22 @@ END
 GO
 
 --PROCEDIMIENTO PARA INSERTAR DETALLE DE FACTURA
+
 CREATE OR ALTER PROCEDURE SP_crearDetalleFac(
 @id VARCHAR(20),
 @idProd VARCHAR(20),
 @cant int,
 @idFac VARCHAR(20),
-@idDes VARCHAR(4),
-@total DECIMAL output)
+@idDes VARCHAR(4))
 AS
 BEGIN
 	BEGIN TRY
 		BEGIN TRANSACTION TRANS
-			INSERT INTO DetallesFactura VALUES 
+
+			INSERT INTO DetallesFactura (idDetalles, idItemProd, cantidad, idFactura, idDescuento)VALUES 
 			(@id, @idProd, @cant, @idFac, @idDes)
-			SELECT @total = SUM((@cant*pp.precio)-des.valor+im.valor)
+
+			SELECT idDetalles, pp.idItemProd, cantidad, idFactura, des.idDescuento, total = SUM((@cant*pp.precio)-des.valor+im.valor)
 			FROM DetallesFactura AS df
 			INNER JOIN Productos AS pp
 			ON df.idItemProd = pp.idItemProd
@@ -178,8 +180,9 @@ BEGIN
 			ON des.idDescuento = df.IdDescuento
 			INNER JOIN Impuestos AS im
 			ON im.idImpuesto = pp.idImpuesto
+			GROUP BY idDetalles, pp.idItemProd, cantidad, idFactura, des.idDescuento
 
-		COMMIT TRANSACTION TRANS
+		COMMIT TRANSACTION TRANS 
 	END TRY
 	BEGIN CATCH 
 		ROLLBACK TRANSACTION TRANS
@@ -187,7 +190,6 @@ BEGIN
 	END CATCH
 END
 GO
-
 
 --CREACION DE USUARIOS
 CREATE LOGIN admin WITH PASSWORD = '123'
@@ -199,6 +201,8 @@ CREATE USER cristian FOR LOGIN consultor
 GRANT CONTROL ON DATABASE::Facturas TO juana /*no estoy seguro*/
 GRANT SELECT ON DATABASE::Facturas TO cristian
 
+
+--INSERCIONES--
 INSERT INTO CodMedidas VALUES
 ('001', 'Unidad'),
 ('002', 'Kilo'),
@@ -252,7 +256,14 @@ INSERT INTO Productos VALUES
 ('002', 'Platano', '001', '1000', 'iva19')
 GO
 
-EXEC SP_crearFactura '001', '001', 'A', '01', '2/11/2022', '001', '2/12/2022', 'COP', '617', 'nada que comentar mi fai'
+----procedimientos almacenados
+EXEC SP_crearFactura '002', '001', 'A', '01', '2/11/2022', '001', '2/12/2022', 'COP', '617', 'nada que comentar mi fai'
 GO
 
-SELECT * FROM Factura
+EXEC SP_crearDetalleFac '002','001',2,'002','ds10'
+GO
+-----Triggers Prueba
+DELETE FROM Factura WHERE idFactura = '002';
+GO
+UPDATE Factura SET idFactura = '002' WHERE idMoneda = 'EUR';---NOFUNCIONA
+GO
