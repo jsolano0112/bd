@@ -203,9 +203,6 @@ END
 GO
 
 
-EXEC SP_crearDetalleFac '002', '001', 2, '002', 'ds10', 0
-
-
 --CREACION DE USUARIOS
 CREATE LOGIN admin WITH PASSWORD = '123'
 CREATE LOGIN consultor WITH PASSWORD = '123'
@@ -271,14 +268,16 @@ INSERT INTO Productos VALUES
 ('002', 'Platano', '001', '1000', 'iva19')
 GO
 
-----procedimientos almacenados
-EXEC SP_crearFactura '002', '001', 'A', '01', '2/11/2022', '001', '2/12/2022', 'COP', '617', 'nada que comentar mi fai'
-GO
 
-EXEC SP_crearDetalleFac '002','001',2,'002','ds10'
-GO
 -----Triggers Prueba
 DELETE FROM Factura WHERE idFactura = '002';
 GO
 UPDATE Factura SET idFactura = '002' WHERE idMoneda = 'EUR';---NOFUNCIONA
+GO
+
+----procedimientos almacenados
+EXEC SP_crearFactura '002', '001', 'A', '01', '2/11/2022', '001', '2/12/2022', 'COP', '617', 'nada que comentar mi fai'
+GO
+
+EXEC SP_crearDetalleFac '002','002',2,'002','ds10', 0
 GO
