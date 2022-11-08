@@ -81,20 +81,20 @@ GO
 
 CREATE TABLE Impuestos
 (idImpuesto varchar(20) primary key,
-valor decimal)
+valor numeric(10,5))
 GO
 
 CREATE TABLE Productos
 (idItemProd varchar(20) primary key,
 descripcion varchar(50) NOT NULL UNIQUE,
 idCodMed varchar(4) NOT NULL constraint FK_medProd FOREIGN KEY(idCodMed) references CodMedidas(idCodMed),
-precio decimal NOT NULL,
+precio numeric(10,5) NOT NULL,
 idImpuesto VARCHAR(20) NOT NULL CONSTRAINT FK_impuestoProd FOREIGN KEY(idImpuesto) REFERENCES Impuestos(idImpuesto))
 GO
 
 CREATE TABLE Descuentos
 (idDescuento varchar(4) primary key,
-valor decimal)
+valor numeric(10,5))
 GO
 
 CREATE TABLE DetallesFactura
@@ -103,7 +103,7 @@ idItemProd varchar(20) constraint FK_prodDetalles FOREIGN KEY(idItemProd) refere
 cantidad int,
 idFactura varchar(20) constraint FK_facDetalles FOREIGN KEY(idFactura) references Factura(idFactura),
 IdDescuento varchar(4) constraint FK_descDetalles FOREIGN KEY(IdDescuento) references Descuentos(IdDescuento),
-total decimal NOT NULL) --procedure
+total numeric(10,5) NOT NULL) --procedure
 GO
 
 --TRIGGER PARA VALIDAR SI UNA FACTURA EXISTE
@@ -120,16 +120,27 @@ END
 GO
 
 --TRIGER PARA IMPEDIR ALTERACION DE FACTURAS
-CREATE OR ALTER TRIGGER TG_alterarFactura
+CREATE OR ALTER TRIGGER TG_modificarFactura
 ON Factura
-FOR UPDATE, DELETE
+AFTER UPDATE
 AS
 IF EXISTS(SELECT 1 FROM inserted) AND EXISTS(SELECT 1 FROM deleted)
+BEGIN
 	RAISERROR('NO DEBES MODIFICAR FACTURAS', 16, 16)
-IF NOT EXISTS(SELECT 1 FROM inserted) AND EXISTS(SELECT 1 FROM deleted)
-	RAISERROR('NO DEBES ELIMINAR FACTURAS', 16, 16)
+	ROLLBACK
+	RETURN
+END
 GO
 
+CREATE OR ALTER TRIGGER TG_eliminarFactura
+ON Factura
+FOR DELETE
+AS
+IF NOT EXISTS(SELECT 1 FROM inserted) AND EXISTS(SELECT 1 FROM deleted)
+	RAISERROR('NO DEBES ELIMINAR FACTURAS', 16, 16)
+	ROLLBACK
+	RETURN
+GO
 --PROCEDIMIENTO PARA INSERTAR ENCABEZADO DE FACTURA
 CREATE OR ALTER PROCEDURE SP_crearFactura(	
 @id VARCHAR(20),
@@ -163,16 +174,17 @@ CREATE OR ALTER PROCEDURE SP_crearDetalleFac(
 @idProd VARCHAR(20),
 @cant int,
 @idFac VARCHAR(20),
-@idDes VARCHAR(4))
+@idDes VARCHAR(4),
+@total numeric(10,5))
 AS
 BEGIN
 	BEGIN TRY
 		BEGIN TRANSACTION TRANS
 
-			INSERT INTO DetallesFactura (idDetalles, idItemProd, cantidad, idFactura, idDescuento)VALUES 
-			(@id, @idProd, @cant, @idFac, @idDes)
+			INSERT INTO DetallesFactura (idDetalles, idItemProd, cantidad, idFactura, idDescuento, total)VALUES 
+			(@id, @idProd, @cant, @idFac, @idDes, @total)
 
-			SELECT idDetalles, pp.idItemProd, cantidad, idFactura, des.idDescuento, total = SUM((@cant*pp.precio)-des.valor+im.valor)
+			SELECT idDetalles, pp.idItemProd, cantidad, idFactura, des.idDescuento, total = ((@cant*pp.precio)-(pp.precio*des.valor)*@cant+(pp.precio*im.valor)*@cant)
 			FROM DetallesFactura AS df
 			INNER JOIN Productos AS pp
 			ON df.idItemProd = pp.idItemProd
@@ -180,7 +192,6 @@ BEGIN
 			ON des.idDescuento = df.IdDescuento
 			INNER JOIN Impuestos AS im
 			ON im.idImpuesto = pp.idImpuesto
-			GROUP BY idDetalles, pp.idItemProd, cantidad, idFactura, des.idDescuento
 
 		COMMIT TRANSACTION TRANS 
 	END TRY
@@ -190,6 +201,10 @@ BEGIN
 	END CATCH
 END
 GO
+
+
+EXEC SP_crearDetalleFac '002', '001', 2, '002', 'ds10', 0
+
 
 --CREACION DE USUARIOS
 CREATE LOGIN admin WITH PASSWORD = '123'
